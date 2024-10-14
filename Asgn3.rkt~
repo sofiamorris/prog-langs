@@ -1,0 +1,41 @@
+#lang typed/racket
+(require typed/rackunit)
+
+;;Sofia Morris, Anissa Soungpanya
+;;<Submission progress comment>
+
+;;represents types of arithmetic extressions
+(define-type ArithC (U NumC BinopC))
+;;represents types of binary operations
+(define-type BinopC (U PlusC MultC SubC DivC SquareC))
+;;represents a number
+(struct NumC([n : Real]) #:transparent)
+;;represents addition
+(struct PlusC([left : ArithC] [right : ArithC]) #:transparent)
+;;represents multiplication
+(struct MultC([left : ArithC] [right : ArithC]) #:transparent)
+;;represents subtraction
+(struct SubC([left : ArithC] [right : ArithC]) #:transparent)
+;;represents division
+(struct DivC([left : ArithC] [right : ArithC]) #:transparent))
+;;represents squares
+(struct SquareC([arg : ArithC]) #:transparent)
+
+
+;;takes in an arithmetic expression and reduces it to its value
+(define (interp [exp : ArithC]) : Real 
+  (match exp 
+    [(NumC n) n]
+    [(PlusC l r) (+ (interp l) (interp r))] 
+    [(MultC l r) (* (interp l) (interp r))]
+    [(SquareC a) (define val (interp a))
+                 (* val val)]))
+
+;;parser in Arith takes in an s-expression and returns a corresponding ArithC or signals an error
+(define (parse [s : Sexp]) : ArithC
+  (match s
+    [(? real? n) (NumC n)]
+    [(list '+ l r) (PlusC (parse l) (parse r))]
+    [(list '* l r) (MultC (parse l) (parse r))]
+    [(list '^2 a) (SquareC (parse a))]
+    [other (error 'parse "expected valid syntax, got ~e" other)]))
