@@ -7,7 +7,7 @@
 ;;represents types of arithmetic extressions
 (define-type ArithC (U NumC BinopC))
 ;;represents types of binary operations
-(define-type BinopC (U PlusC MultC SubC DivC SquareC))
+(define-type BinopC (U PlusC MultC SubC DivC))
 ;;represents a number
 (struct NumC([n : Real]) #:transparent)
 ;;represents addition
@@ -18,17 +18,17 @@
 (struct SubC([left : ArithC] [right : ArithC]) #:transparent)
 ;;represents division
 (struct DivC([left : ArithC] [right : ArithC]) #:transparent)
-;;represents squares
-(struct SqrC([arg : ArithC]) #:transparent)
 
 ;;hashtable to lookup Binary operators
 (define ht
-  (make-immutable-hash '([PlusC . '+] [MultC . '*] [SubC . '-] [DivC . '/] [SqrC . '^2])))
+  (make-immutable-hash '([PlusC . '+] [MultC . '*] [SubC . '-] [DivC . '/])))
 
 ;;takes in an arithmetic expression and reduces it to its value
 (define (interp [exp : ArithC]) : Real
   (match exp 
     [(NumC n) n]
-    [() ("hi")]))
+    [(? (lambda (exp) (hash-has-key? ht exp)))
+     (define op
+       (hash-ref ht exp)) (op (interp ...) (interp ...))]))
 
 ;;parser in Arith takes in an s-expression and returns a corresponding ArithC or signals an error
