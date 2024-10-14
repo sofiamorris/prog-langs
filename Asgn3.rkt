@@ -41,4 +41,14 @@
 (check-equal? (parse '{* {+ 2 3} 7}) (BinopC '* (BinopC '+ (NumC 2) (NumC 3)) (NumC 7)))
 (check-exn #rx"AAQZ" (lambda () (parse "hi")))
 
+;; top-interp takes in s-expression and
+;; calls parse and interp, reducing the
+;; expression to a value
+(define (top-interp [s : Sexp]) : Real
+  (interp(parse s)))
+
+(check-equal? (top-interp '7) 7)
+(check-equal? (top-interp '{* {+ 2 3} 7}) 35)
+(check-exn #rx"AAQZ" (lambda () (top-interp "hi")))
+
 
