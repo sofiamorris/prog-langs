@@ -48,6 +48,16 @@
 (check-equal? (parse '{ifleq0? 5 0 1}) (ifleq0? (NumC 5) (NumC 0) (NumC 1)))
 (check-exn #rx"AAQZ" (lambda () (parse "hi")))
 
+;; top-interp takes in s-expression and
+;; calls parse and interp, reducing the
+;; expression to a value
+(define (top-interp [s : Sexp]) : Real
+  (interp(parse s)))
+
+(check-equal? (top-interp '7) 7)
+(check-equal? (top-interp '{* {+ 2 3} 7}) 35)
+(check-exn #rx"AAQZ" (lambda () (top-interp "hi")))
+
 
 
 
