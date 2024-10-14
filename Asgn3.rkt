@@ -45,7 +45,7 @@
 
 (check-equal? (parse '7) (NumC 7))
 (check-equal? (parse '{* {+ 2 3} 7}) (BinopC '* (BinopC '+ (NumC 2) (NumC 3)) (NumC 7)))
-(check-equal? (parse '{ifleq0? 5 0 1}) (ifleq0? (NumC 5) (NumC 0) (NumC 1)))
+(check-equal? (parse '{ifleq0? 5 1 0}) (ifleq0? (NumC 5) (NumC 1) (NumC 0)))
 (check-exn #rx"AAQZ" (lambda () (parse "hi")))
 
 ;; top-interp takes in s-expression and
@@ -56,6 +56,7 @@
 
 (check-equal? (top-interp '7) 7)
 (check-equal? (top-interp '{* {+ 2 3} 7}) 35)
+(check-equal? (top-interp '{ifleq0? 5 1 0}) 0)
 (check-exn #rx"AAQZ" (lambda () (top-interp "hi")))
 
 
