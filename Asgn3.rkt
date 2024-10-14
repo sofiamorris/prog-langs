@@ -34,8 +34,11 @@
 (define (parse [s : Sexp]) : ExprC
   (match s
     [(? real? n) (NumC n)]
-    [(list (? symbol? op) l r) (BinopC op (parse l) (parse r))]))
+    [(list (? symbol? op) l r) (BinopC op (parse l) (parse r))]
+    [other (error 'parse "AAQZ expected a valid Sexp, got ~e" other)]))
 
 (check-equal? (parse '7) (NumC 7))
 (check-equal? (parse '{* {+ 2 3} 7}) (BinopC '* (BinopC '+ (NumC 2) (NumC 3)) (NumC 7)))
+(check-exn #rx"AAQZ" (lambda () (parse "hi")))
+
 
