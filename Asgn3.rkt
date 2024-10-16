@@ -33,24 +33,6 @@
 
 
 
-;;takes in an arithmetic expression and reduces it to its value
-(define (interp [exp : ExprC][funs : (Listof FundefC)]) : Real
-  (match exp 
-    [(NumC n) n]
-    [(AppC fun args) (interp (subst args (FundefC-args (find-fun fun funs)) (FundefC-body (find-fun fun funs))) funs)]
-    [(BinopC op l r) (binop-interp op l r funs)]
-    [(ifleq0? a b c) (if (<= (interp a funs) (interp (NumC 0) funs)) (interp b funs) (interp c funs))]))
-
-(check-equal? (interp (BinopC '+ (NumC 2) (NumC 2)) '()) 4)
-(check-equal? (interp (BinopC '* (NumC 3) (NumC 2)) '()) 6)
-(check-equal? (interp (BinopC '/ (NumC 2) (NumC 2)) '()) 1)
-(check-equal? (interp (BinopC '- (NumC 2) (NumC 2)) '()) 0)
-(check-equal? (interp (ifleq0? (NumC 5) (NumC 1) (NumC 0)) '()) 0)
-(check-equal? (interp (ifleq0? (NumC -1) (NumC 1) (NumC 0)) '()) 1)
-
-
-
-
 ;; helper function to find function definition
 (define (find-fun [fun : Symbol][funs : (Listof FundefC)]) : FundefC
   (cond
@@ -96,20 +78,40 @@
 ;; helper function to interpret applications
 (define (subst [what : (Listof ExprC)][for : (Listof Symbol)][in : ExprC]) : ExprC
   (match in
-  [(NumC n) in]
-  [(IdC s) (cond
-             [(symbol-in-lst s for) (replace-IdC what (find-IdC s for 0))]
-             [else in])]
-  [(AppC f args) (AppC f (for/list ([x args]) (subst what for x)))]
-  [(BinopC op l r) (if (not (= (length what) (length for)))
-                       (error 'interp "AAQZ number of args does not match number of params")
-                       (BinopC op
-                      (subst what for l)
-                      (subst what for r)))]))
+    [(NumC n) in]
+    [(IdC s) (cond
+               [(symbol-in-lst s for) (replace-IdC what (find-IdC s for 0))]
+               [else in])]
+    [(AppC f args) (AppC f (for/list ([x args]) (subst what for x)))]
+    [(BinopC op l r) (if (not (= (length what) (length for)))
+                         (error 'interp "AAQZ number of args does not match number of params")
+                         (BinopC op
+                                 (subst what for l)
+                                 (subst what for r)))]))
 
 (check-equal? (subst (list (NumC 1)(NumC 2)) '(x y) (BinopC '+ (IdC 'x)(IdC 'y)))
               (BinopC '+ (NumC 1)(NumC 2)))
 (check-exn #rx"AAQZ" (lambda () (subst (list (NumC 1)) '(x y) (BinopC '+ (IdC 'x)(IdC 'y)))))
+
+
+
+
+;;takes in an arithmetic expression and reduces it to its value
+(define (interp [exp : ExprC][funs : (Listof FundefC)]) : Real
+  (match exp 
+    [(NumC n) n]
+    [(AppC fun args) (interp (subst args (FundefC-args (find-fun fun funs)) (FundefC-body (find-fun fun funs))) funs)]
+    [(BinopC op l r) (binop-interp op l r funs)]
+    [(ifleq0? a b c) (if (<= (interp a funs) (interp (NumC 0) funs)) (interp b funs) (interp c funs))]))
+
+(check-equal? (interp (BinopC '+ (NumC 2) (NumC 2)) '()) 4)
+(check-equal? (interp (BinopC '* (NumC 3) (NumC 2)) '()) 6)
+(check-equal? (interp (BinopC '/ (NumC 2) (NumC 2)) '()) 1)
+(check-equal? (interp (BinopC '- (NumC 2) (NumC 2)) '()) 0)
+(check-equal? (interp (AppC 'f (list (NumC 1)(NumC 2)))
+                      (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x)(IdC 'y))))) 3)
+(check-equal? (interp (ifleq0? (NumC 5) (NumC 1) (NumC 0)) '()) 0)
+(check-equal? (interp (ifleq0? (NumC -1) (NumC 1) (NumC 0)) '()) 1)
 
 
 
@@ -123,8 +125,8 @@
                                    (BinopC op (parse l) (parse r))
                                    (AppC op (cast (map parse (rest s)) (Listof ExprC))))]
     ;;[(list (? symbol? fun) args ...) 
-     ;;(AppC fun (cast (map parse args) (Listof ExprC)))]
-     [(list 'ifleq0? a b c) (ifleq0? (parse a) (parse b) (parse c))]
+    ;;(AppC fun (cast (map parse args) (Listof ExprC)))]
+    [(list 'ifleq0? a b c) (ifleq0? (parse a) (parse b) (parse c))]
     [other (error 'parse "AAQZ expected a valid Sexp, got ~e" other)]))
 
 (check-equal? (parse '7) (NumC 7))
@@ -154,13 +156,14 @@
 (define (parse-fundef [s : Sexp]) : FundefC
   (match s
     [(list 'def (? symbol? name) (list (list params ...)
-           '=> body))
+                                       '=> body))
      (if (has-dup (cast (first (third s)) (Listof Symbol)))
          (error 'parse-fundef "AAQZ duplicate arg")
          (FundefC name (cast (first (third s)) (Listof Symbol)) (parse body)))]
     [other (error 'parse-fundef "AAQZ improper syntax ~e" other)]))
 
 (check-equal? (parse-fundef '{def f {(x y) => {+ x y}}}) (FundefC 'f '(x y) (BinopC '+ (IdC 'x) (IdC 'y))))
+(check-equal? (parse-fundef '{def g {() => 5}}) (FundefC 'g '() (NumC 5)))
 (check-exn #rx"AAQZ" (lambda () (parse-fundef '{def err {(x x) => x}})))
 (check-exn #rx"AAQZ" (lambda () (parse-fundef '{def err {(x y)}})))
 
@@ -174,9 +177,11 @@
     [other (error 'parse-prog "AAQZ improper syntax ~e" other)]))
 
 (check-equal? (parse-prog '{{def f {(x y) => {+ x y}}}
-                             {def y {(y x) => {* y x}}}})
+                            {def y {(y x) => {* y x}}}})
               (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x) (IdC 'y)))
                     (FundefC 'y '(y x) (BinopC '* (IdC 'y) (IdC 'x)))))
+(check-exn #rx"AAQZ" (lambda () (parse-prog 'def)))
+
 
 
 
@@ -184,8 +189,9 @@
 ;; calls parse and interp, reducing the
 ;; expression to a value
 #;(define (top-interp [fun-sexps : Sexp]) : Real
-  (interp-fn (parse-prog fun-sexps)))
+    (interp-fn (parse-prog fun-sexps)))
 
 #;(check-equal? (top-interp '{{def f {(x y) => {+ x y}}}
-                     {def main {() => {f 1 2}}}}) 3)
+                              {def main {() => {f 1 2}}}}) 3)
+
 
