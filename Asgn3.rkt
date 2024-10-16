@@ -137,6 +137,19 @@
 
 
 
+;; helper function to check for duplicate parameters
+(define (has-dup [lst : (Listof Symbol)]) : Boolean
+  (cond
+    [(or (empty? lst) (empty? (rest lst))) #f]
+    [(member (first lst) (rest lst)) #t]
+    [else (has-dup (rest lst))]))
+
+(check-equal? (has-dup '{h h}) #t)
+(check-equal? (has-dup '{w s}) #f)
+
+
+
+
 ;; parser that takes s-expression and returns FundefC's
 (define (parse-fundef [s : Sexp]) : FundefC
   (match s
@@ -154,25 +167,16 @@
 
 
 
-;; helper function to check for duplicate parameters
-(define (has-dup [lst : (Listof Symbol)]) : Boolean
-  (cond
-    [(or (empty? lst) (empty? (rest lst))) #f]
-    [(member (first lst) (rest lst)) #t]
-    [else (has-dup (rest lst))]))
-
-(check-equal? (has-dup '{h h}) #t)
-(check-equal? (has-dup '{w s}) #f)
-
-
-
-
 ;; parser that takes s-expression with FundefC and returns list of FundefC
 (define (parse-prog [s : Sexp]) : (Listof FundefC)
   (match s
     [(list r ...) (map parse-fundef s)]
     [other (error 'parse-prog "AAQZ improper syntax ~e" other)]))
 
+(check-equal? (parse-prog '{{def f {(x y) => {+ x y}}}
+                             {def y {(y x) => {* y x}}}})
+              (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x) (IdC 'y)))
+                    (FundefC 'y '(y x) (BinopC '* (IdC 'y) (IdC 'x)))))
 
 
 
