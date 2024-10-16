@@ -2,7 +2,7 @@
 (require typed/rackunit)
 
 ;;Sofia Morris, Anissa Soungpanya
-;;<Submission progress comment>
+;;finished all steps of assignment
 
 ;;represents types of arithmetic extressions
 (define-type ExprC (U NumC BinopC AppC IdC ifleq0?))
@@ -36,16 +36,21 @@
     [(equal? fun (FundefC-name (first funs))) (first funs)]
     [else (find-fun fun (rest funs))]))
 
-(check-equal? (find-fun 'f (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x) (IdC 'y))))) (FundefC 'f '(x y) (BinopC '+ (IdC 'x) (IdC 'y))))
-(check-exn #rx"AAQZ" (lambda () (find-fun 'hi (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x) (IdC 'y)))))))
+(check-equal? (find-fun 'f (list (FundefC 'f '(x y)
+                                          (BinopC '+ (IdC 'x) (IdC 'y)))))
+              (FundefC 'f '(x y) (BinopC '+ (IdC 'x) (IdC 'y))))
+(check-exn #rx"AAQZ" (lambda () (find-fun 'hi (list
+                                               (FundefC 'f '(x y) (BinopC '+ (IdC 'x) (IdC 'y)))))))
 
 
 ;; helper function that returns index of IdC in for
 (define (find-IdC [s : Symbol][lst : (Listof Symbol)][index : Real]) : Real
   (cond
-    [(empty? lst) -1]
     [(equal? (first lst) s) index]
     [else (find-IdC s (rest lst) (+ index 1))]))
+
+(check-equal? (find-IdC 'x (list 'x 'y) 0) 0)
+(check-equal? (find-IdC 'y (list 'x 'y) 0) 1)
 
 
 ;; helper function to match IdC to ExprC in what
@@ -54,6 +59,7 @@
     [(= index 0) (first lst)]
     [else (replace-IdC (rest lst) (- index 1))]))
 
+(check-equal? (replace-IdC (list (NumC 1)(NumC 2)) 1) (NumC 2))
 
 ;; helper function to see if IdC is in what
 (define (symbol-in-lst [s : Symbol][lst : (Listof Symbol)]) : Boolean
@@ -61,6 +67,8 @@
     [(empty? lst) #f]
     [(equal? s (first lst)) #t]
     [else (symbol-in-lst s (rest lst))]))
+
+(check-equal? (symbol-in-lst 'x '()) #f)
 
 
 ;; helper function to interpret applications
@@ -79,8 +87,10 @@
 
 (check-equal? (subst (list (NumC 1)(NumC 2)) '(x y) (BinopC '+ (IdC 'x)(IdC 'y)))
               (BinopC '+ (NumC 1)(NumC 2)))
+(check-equal? (subst '() '() (AppC 'g '())) (AppC 'g '()))
+(check-equal? (subst (list (NumC 1)) '(x) (AppC 'g (list (IdC 'x)))) (AppC 'g (list (NumC 1))))
+(check-equal? (subst (list (NumC 3)) '(a) (IdC 'b)) (IdC 'b))
 (check-exn #rx"AAQZ" (lambda () (subst (list (NumC 1)) '(x y) (BinopC '+ (IdC 'x)(IdC 'y)))))
-
 
 
 
@@ -107,24 +117,64 @@
 (define (interp-fns [funs : (Listof FundefC)]) : Real
   (cond
     [(empty? funs) (error 'interp-fns "AAQZ given empty list of functions")]
-    [else (define main-fn (filter (lambda (fn)
-                                    (equal? 'main (FundefC-name (cast fn FundefC)))) funs))
+    [else (define main-fn (filter (lambda ([fn : FundefC])
+                                    (equal? 'main (FundefC-name fn))) funs))
           (if (empty? main-fn)
               (error 'interp-fns "AAQZ main not found")
               (interp (FundefC-body (first main-fn)) funs))]))
 
 (check-equal? (interp-fns
-               (list (FundefC 'f '(x) (BinopC '+ (IdC 'x) (IdC 'x))) (FundefC 'main '() (AppC 'f (list (NumC 1)))))) 2)
+               (list (FundefC 'f '(x) (BinopC '+ (IdC 'x) (IdC 'x)))
+                     (FundefC 'main '() (AppC 'f (list (NumC 1)))))) 2)
 (check-exn #rx"AAQZ" (lambda () (interp-fns (list ))))
 (check-exn #rx"AAQZ" (lambda () (interp-fns
                (list (FundefC 'f '(x) (BinopC '+ (IdC 'x) (IdC 'x)))))))
+
+;;take in a sexp representing an id and check that it is a symbol that is not a
+;;+, - , *, /, def, ifleq0?, or =>
+;;returns true if valid and false if not valid
+(define (valid-id? [id : Sexp]) : Boolean
+  (match id
+    [(? symbol?) (match id
+                     ['+ #f]
+                     ['- #f]
+                     ['* #f]
+                     ['/ #f]
+                     ['def #f]
+                     ['ifleq0? #f]
+                     ['=> #f]
+                     [else #t])]
+    [else #f]))
+
+(check-equal? (valid-id? 's) #t)
+(check-equal? (valid-id? '+) #f)
+(check-equal? (valid-id? '-) #f)
+(check-equal? (valid-id? '*) #f)
+(check-equal? (valid-id? '/) #f)
+(check-equal? (valid-id? 'def) #f)
+(check-equal? (valid-id? 'ifleq0?) #f)
+(check-equal? (valid-id? '=>) #f)
+(check-equal? (valid-id? 5) #f)
+
+;;takes in a sexp function name and checks that it is a symbol and returns false if the
+;;symbol is 'main and true otherwise
+(define (valid-name? [fun : Sexp]) : Boolean
+    (match fun
+    [(? symbol?) (match fun
+                     ['main #f]
+                     [else #t])]
+    [else #f]))
+
+(check-equal? (valid-name? 'add) #t)
+(check-equal? (valid-name? 'main) #f)
+(check-equal? (valid-name? 5) #f)
 
 ;;parser in Arith takes in an s-expression and returns a corresponding ArithC or signals an error
 (define (parse [s : Sexp]) : ExprC
   (match s
     [(? real? n) (NumC n)]
-    [(? symbol? s) (IdC s)]
-    [(list (? symbol? f)) (AppC f '())]
+    [(? valid-id? id) (IdC (cast id Symbol))]
+    [(list (? valid-name? f)) (AppC (cast f Symbol) '())]
     [(list (? symbol? op) l r) (if (member op '(+ - * /))
                                    (BinopC op (parse l) (parse r))
                                    (AppC op (cast (map parse (rest s)) (Listof ExprC))))]
@@ -137,6 +187,7 @@
 (check-exn #rx"AAQZ" (lambda () (parse "hi")))
 (check-equal? (parse '{+ {f} {f}}) (BinopC '+ (AppC 'f '()) (AppC 'f '())))
 
+
 ;; helper function to check for duplicate parameters
 (define (has-dup [lst : (Listof Symbol)]) : Boolean
   (cond
@@ -146,8 +197,6 @@
 
 (check-equal? (has-dup '{h h}) #t)
 (check-equal? (has-dup '{w s}) #f)
-
-
 
 
 ;; parser that takes s-expression and returns FundefC's
@@ -160,7 +209,8 @@
          (FundefC name (cast (first (third s)) (Listof Symbol)) (parse body)))]
     [other (error 'parse-fundef "AAQZ improper syntax ~e" other)]))
 
-(check-equal? (parse-fundef '{def f {(x y) => {+ x y}}}) (FundefC 'f '(x y) (BinopC '+ (IdC 'x) (IdC 'y))))
+(check-equal? (parse-fundef '{def f {(x y) => {+ x y}}})
+              (FundefC 'f '(x y) (BinopC '+ (IdC 'x) (IdC 'y))))
 (check-equal? (parse-fundef '{def g {() => 5}}) (FundefC 'g '() (NumC 5)))
 (check-exn #rx"AAQZ" (lambda () (parse-fundef '{def err {(x x) => x}})))
 (check-exn #rx"AAQZ" (lambda () (parse-fundef '{def err {(x y)}})))
@@ -196,9 +246,9 @@
 (check-equal? (top-interp '{{def f {(x y) => {+ x y}}}
                               {def main {() => {f 1 2}}}}) 3)
 
- (check-equal? (interp-fns
-        (parse-prog '{{def f {() => 5}}
-                      {def main {() => {+ {f} {f}}}}}))
-       10)
+ (check-equal? (top-interp '{{def f {() => 5}}
+                      {def main {() => {+ {f} {f}}}}}) 10)
 
-
+;;while evaluating (top-interp (quote ((def main (() => (twice (minus 8 5))))
+;; (def minus ((x y) => (+ x (* -1 y)))) (def twice ((x) => (* 2 x)))))):
+;;  parse: AAQZ expected a valid Sexp, got '(list 't...
