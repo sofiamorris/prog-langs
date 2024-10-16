@@ -12,13 +12,11 @@
 (struct BinopC ([op : Symbol] [left : ExprC] [right : ExprC]) #:transparent)
 ;;represents conditional <=0
 (struct ifleq0? ([a : ExprC] [b : ExprC] [c : ExprC]) #:transparent)
-;;represents an identifier
-(struct IdC ([s : Symbol]) #:transparent)
 ;;represents function definitions
 (struct FundefC ([name : Symbol] [args : (Listof Symbol)] [body : ExprC]) #:transparent)
 ;; represents application form
-(struct AppC ([fun : Symbol] [arg : Symbol]) #:transparent)
-;; represents idC
+(struct AppC ([fun : Symbol] [arg : NumC]) #:transparent)
+;; represents an identifier
 (struct IdC ([name : Symbol]))
 
 ;;takes in an operator symbol and two arithmetic functions and returns the result of the operation
@@ -35,7 +33,7 @@
     [(NumC n) n]
     [(AppC fun args) (subst args (FundefC-args (find-fun fun funs)) (FundefC-body (find-fun fun funs)))]
     [(BinopC op l r) (binop-interp op l r funs)]
-    [(ifleq0? a b c) (if (<= (interp a) (interp (NumC 0))) (interp b) (interp c))]))
+    [(ifleq0? a b c) (if (<= (interp a '()) (interp (NumC 0) '())) (interp b '()) (interp c '()))]))
 
 
 
@@ -58,12 +56,25 @@
                       (subst what for l)
                       (subst what for r))]))
 
-(check-equal? (interp (BinopC '+ (NumC 2) (NumC 2))) 4)
-(check-equal? (interp (BinopC '* (NumC 3) (NumC 2))) 6)
-(check-equal? (interp (BinopC '/ (NumC 2) (NumC 2))) 1)
-(check-equal? (interp (BinopC '- (NumC 2) (NumC 2))) 0)
-(check-equal? (interp (ifleq0? (NumC 5) (NumC 1) (NumC 0))) 0)
-(check-equal? (interp (ifleq0? (NumC -1) (NumC 1) (NumC 0))) 1)
+(check-equal? (interp (BinopC '+ (NumC 2) (NumC 2)) '()) 4)
+(check-equal? (interp (BinopC '* (NumC 3) (NumC 2)) '()) 6)
+(check-equal? (interp (BinopC '/ (NumC 2) (NumC 2)) '()) 1)
+(check-equal? (interp (BinopC '- (NumC 2) (NumC 2)) '()) 0)
+(check-equal? (interp (ifleq0? (NumC 5) (NumC 1) (NumC 0)) '()) 0)
+(check-equal? (interp (ifleq0? (NumC -1) (NumC 1) (NumC 0)) '()) 1)
+
+;; takes in a list of function definitions and returns the final value
+;; differentiate main function from other function definitions and calls
+;; interp using application in main and rest of functions
+(define (interp-fns [funs : (Listof FundefC)]) : Real
+  (cond
+    [(empty? funs) (error 'interp-fns "AAQZ main not found")]
+    [else (define main-fn (filter (lambda (fn)
+                                    (equal? 'main (FundefC-name (cast fn FundefC)))) funs))
+          (interp (FundefC-body (first main-fn)) funs)]))
+
+(check-equal? (interp-fns
+               (list (FundefC 'f '(x) (BinopC '+ 'x 'x)) (FundefC 'main '() (AppC 'f (NumC 1))))) 2)
 
 ;;parser in Arith takes in an s-expression and returns a corresponding ArithC or signals an error
 (define (parse [s : Sexp]) : ExprC
@@ -83,13 +94,13 @@
 ;; top-interp takes in s-expression and
 ;; calls parse and interp, reducing the
 ;; expression to a value
-(define (top-interp [s : Sexp]) : Real
+#;(define (top-interp [s : Sexp]) : Real
   (interp(parse s)))
 
-(check-equal? (top-interp '7) 7)
-(check-equal? (top-interp '{* {+ 2 3} 7}) 35)
-(check-equal? (top-interp '{ifleq0? 5 1 0}) 0)
-(check-exn #rx"AAQZ" (lambda () (top-interp "hi")))
+#;(check-equal? (top-interp '7) 7)
+#;(check-equal? (top-interp '{* {+ 2 3} 7}) 35)
+;;(check-equal? (top-interp '{ifleq0? 5 1 0}) 0)
+;;(check-exn #rx"AAQZ" (lambda () (top-interp "hi")))
 
 
 ;; parser that takes s-expression and returns FundefC's
