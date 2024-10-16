@@ -18,12 +18,12 @@
 (struct AppC ([fun : Symbol] [arg : Symbol]) #:transparent)
 
 ;;takes in an operator symbol and two arithmetic functions and returns the result of the operation
-(define (binop-interp [op : Symbol] [l : ExprC] [r : ExprC]) : Real
+(define (binop-interp [op : Symbol] [l : ExprC] [r : ExprC] [funs : Listof FundefC]) : Real
   (match op
-    ['* (* (interp l) (interp r))]
-    ['+ (+ (interp l) (interp r))]
-    ['/ (/ (interp l) (interp r))]
-    ['- (- (interp l) (interp r))]))
+    ['* (* (interp l funs) (interp r funs))]
+    ['+ (+ (interp l funs) (interp r funs))]
+    ['/ (/ (interp l funs) (interp r funs))]
+    ['- (- (interp l funs) (interp r funs))]))
 
 ;;takes in an arithmetic expression and reduces it to its value
 (define (interp [exp : ExprC]) : Real
