@@ -32,7 +32,7 @@
   (match exp 
     [(NumC n) n]
     [(AppC fun args) (subst args (FundefC-args (find-fun fun funs)) (FundefC-body (find-fun fun funs)))]
-    [(BinopC op l r) (binop-interp op l r)]
+    [(BinopC op l r) (binop-interp op l r funs)]
     [(ifleq0? a b c) (if (<= (interp a) (interp (NumC 0))) (interp b) (interp c))]))
 
 
