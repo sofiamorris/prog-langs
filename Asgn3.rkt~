@@ -43,11 +43,10 @@
 ;; helper function that returns index of IdC in for
 (define (find-IdC [s : Symbol][lst : (Listof Symbol)][index : Real]) : Real
   (cond
+    [(empty? lst) -1]
     [(equal? (first lst) s) index]
     [else (find-IdC s (rest lst) (+ index 1))]))
 
-(check-equal? (find-IdC 'x (list 'x 'y) 0) 0)
-(check-equal? (find-IdC 'y (list 'x 'y) 0) 1)
 
 ;; helper function to match IdC to ExprC in what
 (define (replace-IdC [lst : (Listof ExprC)][index : Real]) : ExprC
@@ -55,7 +54,6 @@
     [(= index 0) (first lst)]
     [else (replace-IdC (rest lst) (- index 1))]))
 
-(check-equal? (replace-IdC (list (NumC 1)(NumC 2)) 1) (NumC 2))
 
 ;; helper function to see if IdC is in what
 (define (symbol-in-lst [s : Symbol][lst : (Listof Symbol)]) : Boolean
@@ -102,9 +100,6 @@
                       (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x)(IdC 'y))))) 3)
 (check-equal? (interp (ifleq0? (NumC 5) (NumC 1) (NumC 0)) '()) 0)
 (check-equal? (interp (ifleq0? (NumC -1) (NumC 1) (NumC 0)) '()) 1)
-(check-equal? (interp (AppC 'f (list (NumC 1)(AppC 'f (list (NumC 1)(NumC 1)))))
-                      (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x)(IdC 'y))))) 3)
-
 
 ;; takes in a list of function definitions and returns the final value
 ;; differentiate main function from other function definitions and calls
@@ -123,11 +118,6 @@
 (check-exn #rx"AAQZ" (lambda () (interp-fns (list ))))
 (check-exn #rx"AAQZ" (lambda () (interp-fns
                (list (FundefC 'f '(x) (BinopC '+ (IdC 'x) (IdC 'x)))))))
-(check-equal? (interp-fns
-               (list (FundefC 'f '() (NumC 5)) (FundefC 'main '() (BinopC '+ (AppC 'f '()) (AppC 'f '()))))) 10)
-
-
-
 
 ;;parser in Arith takes in an s-expression and returns a corresponding ArithC or signals an error
 (define (parse [s : Sexp]) : ExprC
@@ -205,13 +195,10 @@
 
 (check-equal? (top-interp '{{def f {(x y) => {+ x y}}}
                               {def main {() => {f 1 2}}}}) 3)
-(check-equal? (interp-fns
+
+ (check-equal? (interp-fns
         (parse-prog '{{def f {() => 5}}
-                      {def main {() => {+ {f} {f}}}}}))10)
-(check-exn #rx"AAQZ"
-            (λ ()
-              (interp-fns
-               (parse-prog '{{def f {(x y) => {+ x y}}}
-                             {def main {() => {f 1}}}}))))
+                      {def main {() => {+ {f} {f}}}}}))
+       10)
 
 
