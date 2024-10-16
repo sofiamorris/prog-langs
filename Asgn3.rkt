@@ -20,8 +20,6 @@
 (struct IdC ([name : Symbol]) #:transparent)
 
 
-
-
 ;;takes in an operator symbol and two arithmetic functions and returns the result of the operation
 (define (binop-interp [op : Symbol] [l : ExprC] [r : ExprC] [funs : (Listof FundefC)]) : Real
   (match op
@@ -29,8 +27,6 @@
     ['+ (+ (interp l funs) (interp r funs))]
     ['/ (/ (interp l funs) (interp r funs))]
     ['- (- (interp l funs) (interp r funs))]))
-
-
 
 
 ;; helper function to find function definition
@@ -116,7 +112,18 @@
 (check-equal? (interp (ifleq0? (NumC 5) (NumC 1) (NumC 0)) '()) 0)
 (check-equal? (interp (ifleq0? (NumC -1) (NumC 1) (NumC 0)) '()) 1)
 
+;; takes in a list of function definitions and returns the final value
+;; differentiate main function from other function definitions and calls
+;; interp using application in main and rest of functions
+(define (interp-fns [funs : (Listof FundefC)]) : Real
+  (cond
+    [(empty? funs) (error 'interp-fns "AAQZ main not found")]
+    [else (define main-fn (filter (lambda (fn)
+                                    (equal? 'main (FundefC-name (cast fn FundefC)))) funs))
+          (interp (FundefC-body (first main-fn)) funs)]))
 
+#;(check-equal? (interp-fns
+               (list (FundefC 'f '(x) (BinopC '+ 'x 'x)) (FundefC 'main '() (AppC 'f (NumC 1))))) 2)
 
 
 ;; takes in a list of function definitions and returns the final value
@@ -150,9 +157,21 @@
 (check-equal? (parse '{* {+ 2 3} 7}) (BinopC '* (BinopC '+ (NumC 2) (NumC 3)) (NumC 7)))
 (check-equal? (parse '{ifleq0? 5 1 0}) (ifleq0? (NumC 5) (NumC 1) (NumC 0)))
 (check-exn #rx"AAQZ" (lambda () (parse "hi")))
+
+
+;; top-interp takes in s-expression and
+;; calls parse and interp, reducing the
+;; expression to a value
+#;(define (top-interp [s : Sexp]) : Real
+  (interp(parse s)))
+
+#;(check-equal? (top-interp '7) 7)
+#;(check-equal? (top-interp '{* {+ 2 3} 7}) 35)
+;;(check-equal? (top-interp '{ifleq0? 5 1 0}) 0)
+;;(check-exn #rx"AAQZ" (lambda () (top-interp "hi")))
+
 (check-equal? (parse '{f 1 2}) (AppC 'f (list (NumC 1) (NumC 2))))
 (check-equal? (parse 'f) (IdC 'f))
-
 
 
 
