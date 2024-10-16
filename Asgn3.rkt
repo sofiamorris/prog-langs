@@ -72,6 +72,9 @@
     [(equal? s (first lst)) #t]
     [else (symbol-in-lst s (rest lst))]))
 
+(check-equal? (symbol-in-lst 'f '(f g)) #t)
+(check-equal? (symbol-in-lst 'f '(g)) #f)
+
 
 
 
@@ -116,6 +119,22 @@
 
 
 
+;; takes in a list of function definitions and returns the final value
+;; differentiate main function from other function definitions and calls
+;; interp using application in main and rest of functions
+(define (interp-fns [funs : (Listof FundefC)]) : Real
+  (cond
+    [(empty? funs) (error 'interp-fns "AAQZ main not found")]
+    [else (define main-fn (filter (lambda (fn)
+                                    (equal? 'main (FundefC-name (cast fn FundefC)))) funs))
+          (interp (FundefC-body (first main-fn)) funs)]))
+
+#;(check-equal? (interp-fns
+               (list (FundefC 'f '(x) (BinopC '+ 'x 'x)) (FundefC 'main '() (AppC 'f (NumC 1))))) 2)
+
+
+
+
 ;;parser in Arith takes in an s-expression and returns a corresponding ArithC or signals an error
 (define (parse [s : Sexp]) : ExprC
   (match s
@@ -124,8 +143,6 @@
     [(list (? symbol? op) l r) (if (member op '(+ - * /))
                                    (BinopC op (parse l) (parse r))
                                    (AppC op (cast (map parse (rest s)) (Listof ExprC))))]
-    ;;[(list (? symbol? fun) args ...) 
-    ;;(AppC fun (cast (map parse args) (Listof ExprC)))]
     [(list 'ifleq0? a b c) (ifleq0? (parse a) (parse b) (parse c))]
     [other (error 'parse "AAQZ expected a valid Sexp, got ~e" other)]))
 
