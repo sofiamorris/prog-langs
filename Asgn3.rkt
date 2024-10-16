@@ -12,6 +12,8 @@
 (struct BinopC ([op : Symbol] [left : ExprC] [right : ExprC]) #:transparent)
 ;;represents conditional <=0
 (struct ifleq0? ([a : ExprC] [b : ExprC] [c : ExprC]) #:transparent)
+;;represents an identifier
+(struct IdC ([s : Symbol]) #:transparent)
 
 ;;takes in an operator symbol and two arithmetic functions and returns the result of the operation
 (define (binop-interp [op : Symbol] [l : ExprC] [r : ExprC]) : Real
