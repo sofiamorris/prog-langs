@@ -169,13 +169,25 @@
 (define (valid-name? [fun : Sexp]) : Boolean
     (match fun
     [(? symbol?) (match fun
-                     ['main #f]
+                     ['+ #f]
+                     ['- #f]
+                     ['* #f]
+                     ['/ #f]
+                     ['def #f]
+                     ['ifleq0? #f]
+                     ['=> #f]
                      [else #t])]
     [else #f]))
 
 (check-equal? (valid-name? 'add) #t)
-(check-equal? (valid-name? 'main) #f)
 (check-equal? (valid-name? 5) #f)
+(check-equal? (valid-name? '+) #f)
+(check-equal? (valid-name? '-) #f)
+(check-equal? (valid-name? '*) #f)
+(check-equal? (valid-name? '/) #f)
+(check-equal? (valid-name? 'def) #f)
+(check-equal? (valid-name? 'ifleq0?) #f)
+(check-equal? (valid-name? '=>) #f)
 
 ;;parser in Arith takes in an s-expression and returns a corresponding ArithC or signals an error
 (define (parse [s : Sexp]) : ExprC
@@ -186,6 +198,7 @@
     [(list (? symbol? op) l r) (if (member op '(+ - * /))
                                    (BinopC op (parse l) (parse r))
                                    (AppC op (cast (map parse (rest s)) (Listof ExprC))))]
+    [(list (? valid-name? f) r) (AppC (cast f Symbol) (list (parse r)))]
     [(list 'ifleq0? a b c) (ifleq0? (parse a) (parse b) (parse c))]
     [other (error 'parse "AAQZ expected a valid Sexp, got ~e" other)]))
 
@@ -210,11 +223,11 @@
 ;; parser that takes s-expression and returns FundefC's
 (define (parse-fundef [s : Sexp]) : FundefC
   (match s
-    [(list 'def (? symbol? name) (list (list params ...)
+    [(list 'def (? valid-name? name) (list (list params ...)
                                        '=> body))
      (if (has-dup (cast (first (third s)) (Listof Symbol)))
          (error 'parse-fundef "AAQZ duplicate arg")
-         (FundefC name (cast (first (third s)) (Listof Symbol)) (parse body)))]
+         (FundefC (cast name Symbol) (cast (first (third s)) (Listof Symbol)) (parse body)))]
     [other (error 'parse-fundef "AAQZ improper syntax ~e" other)]))
 
 (check-equal? (parse-fundef '{def f {(x y) => {+ x y}}})
@@ -225,6 +238,7 @@
 (check-equal? (parse-fundef '{def f {() => 5}}) (FundefC 'f '() (NumC 5)))
 (check-equal? (parse-fundef '{def main {() => {+ {f} {f}}}})
               (FundefC 'main '() (BinopC '+ (AppC 'f '()) (AppC 'f '()))))
+(check-exn  #rx"AAQZ" (lambda () (parse-fundef '(def + (() => 13)))))
 
 
 ;; parser that takes s-expression with FundefC and returns list of FundefC
@@ -254,15 +268,15 @@
 (check-equal? (top-interp '{{def f {(x y) => {+ x y}}}
                               {def main {() => {f 1 2}}}}) 3)
 
- (check-equal? (top-interp '{{def f {() => 5}}
-                      {def main {() => {+ {f} {f}}}}}) 10)
+(check-equal? (top-interp '{{def f {() => 5}}
+                            {def main {() => {+ {f} {f}}}}}) 10)
 
-(check-exn #rx"AAQZ"
+(check-equal? (top-interp '{{def main {() => {twice {minus 8 5}}}}
+                            {def minus {(x y) => {+ x {* -1 y}}}}
+                            {def twice {(x) => {* 2 x}}}} ) 6)
+
+#;(check-exn #rx"AAQZ"
             (λ ()
               (interp-fns
                (parse-prog '{{def f {(x y) => {+ x y}}}
                              {def main {() => {f 1}}}}))))
-
-;;while evaluating (top-interp (quote ((def main (() => (twice (minus 8 5))))
-;; (def minus ((x y) => (+ x (* -1 y)))) (def twice ((x) => (* 2 x)))))):
-;;  parse: AAQZ expected a valid Sexp, got '(list 't...
