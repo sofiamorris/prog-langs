@@ -29,7 +29,7 @@
 (define (interp [exp : ExprC]) : Real
   (match exp 
     [(NumC n) n]
-    [(AppC fun args) (subst args ((find-fun fun funs)-args) ((find-fun fun funs)-body))]
+    [(AppC fun args) (subst args (FundefC-args (find-fun fun funs)) (FundefC-body (find-fun fun funs)))]
     [(BinopC op l r) (binop-interp op l r)]
     [(ifleq0? a b c) (if (<= (interp a) (interp (NumC 0))) (interp b) (interp c))]))
 
@@ -39,19 +39,20 @@
 (define (find-fun [fun : Symbol][funs : (Listof FundefC)]) : FundefC
   (cond
     [(empty? funs) (error 'find-fun "AAQZ function not found")]
-    [(equal? fun (first(funs))-name) (first(funs))]
+    [(equal? fun (FundefC-name (first(funs)))) (first(funs))]
     [else (find-fun (rest funs))]))
 
 ;; helper function to interpret single-argument applications
 (define (subst [what : ExprC][for : Symbol][in : ExprC]) : ExprC
-  (type-case ExprC in
-  [numC (n) in]
-  [idC (s) (cond
-             [(symbol=? s for) what]
+  (match in
+  [(NumC n) in]
+  [(IdC s) (cond
+             [(= s for) what]
              [else in])]
-  [AppC (f a) (AppC f (subst what for a))]
-  [BinopC (op l r) (BinopC op
+  [(AppC f a) (AppC f (subst what for a))]
+  [(BinopC op l r) (BinopC op
                       (subst what for l)
+                      (subst what for r))]))
 
 (check-equal? (interp (BinopC '+ (NumC 2) (NumC 2))) 4)
 (check-equal? (interp (BinopC '* (NumC 3) (NumC 2))) 6)
@@ -89,12 +90,12 @@
 
 ;; parser that takes s-expression and returns FundefC's
 (define (parse-fundef [s : Sexp]) : FundefC
-  (match func
+  (match s
     [(list 'def (? symbol? name) (list (list params ...)
            '=> body))
-     (if (has-dup (cast (first (third func)) (Listof Symbol)))
+     (if (has-dup (cast (first (third s)) (Listof Symbol)))
          (error 'parse-fundef "AAQZ duplicate arg")
-         (FundefC name (cast (first (third func)) (Listof Symbol)) (parse body)))]
+         (FundefC name (cast (first (third s)) (Listof Symbol)) (parse body)))]
     [other (error 'parse-fundef "AAQZ improper syntax ~e" other)]))
 
 ;; helper function to check for duplicate parameters
