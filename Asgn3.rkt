@@ -40,16 +40,12 @@
 (check-exn #rx"AAQZ" (lambda () (find-fun 'hi (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x) (IdC 'y)))))))
 
 
-
-
 ;; helper function that returns index of IdC in for
 (define (find-IdC [s : Symbol][lst : (Listof Symbol)][index : Real]) : Real
   (cond
     [(empty? lst) -1]
     [(equal? (first lst) s) index]
     [else (find-IdC s (rest lst) (+ index 1))]))
-
-
 
 
 ;; helper function to match IdC to ExprC in what
@@ -59,16 +55,12 @@
     [else (replace-IdC (rest lst) (- index 1))]))
 
 
-
-
 ;; helper function to see if IdC is in what
 (define (symbol-in-lst [s : Symbol][lst : (Listof Symbol)]) : Boolean
   (cond
     [(empty? lst) #f]
     [(equal? s (first lst)) #t]
     [else (symbol-in-lst s (rest lst))]))
-
-
 
 
 ;; helper function to interpret applications
@@ -114,25 +106,28 @@
 ;; interp using application in main and rest of functions
 (define (interp-fns [funs : (Listof FundefC)]) : Real
   (cond
-    [(empty? funs) (error 'interp-fns "AAQZ main not found")]
+    [(empty? funs) (error 'interp-fns "AAQZ given empty list of functions")]
     [else (define main-fn (filter (lambda (fn)
                                     (equal? 'main (FundefC-name (cast fn FundefC)))) funs))
-          (interp (FundefC-body (first main-fn)) funs)]))
+          (if (empty? main-fn)
+              (error 'interp-fns "AAQZ main not found")
+              (interp (FundefC-body (first main-fn)) funs))]))
 
-#;(check-equal? (interp-fns
-               (list (FundefC 'f '(x) (BinopC '+ 'x 'x)) (FundefC 'main '() (AppC 'f (NumC 1))))) 2)
-
+(check-equal? (interp-fns
+               (list (FundefC 'f '(x) (BinopC '+ (IdC 'x) (IdC 'x))) (FundefC 'main '() (AppC 'f (list (NumC 1)))))) 2)
+(check-exn #rx"AAQZ" (lambda () (interp-fns (list ))))
+(check-exn #rx"AAQZ" (lambda () (interp-fns
+               (list (FundefC 'f '(x) (BinopC '+ (IdC 'x) (IdC 'x)))))))
 
 ;;parser in Arith takes in an s-expression and returns a corresponding ArithC or signals an error
 (define (parse [s : Sexp]) : ExprC
   (match s
     [(? real? n) (NumC n)]
     [(? symbol? s) (IdC s)]
+    [(list (? symbol? f)) (AppC f '())]
     [(list (? symbol? op) l r) (if (member op '(+ - * /))
                                    (BinopC op (parse l) (parse r))
                                    (AppC op (cast (map parse (rest s)) (Listof ExprC))))]
-    ;;[(list (? symbol? fun) args ...) 
-    ;;(AppC fun (cast (map parse args) (Listof ExprC)))]
     [(list 'ifleq0? a b c) (ifleq0? (parse a) (parse b) (parse c))]
     [other (error 'parse "AAQZ expected a valid Sexp, got ~e" other)]))
 
@@ -140,23 +135,7 @@
 (check-equal? (parse '{* {+ 2 3} 7}) (BinopC '* (BinopC '+ (NumC 2) (NumC 3)) (NumC 7)))
 (check-equal? (parse '{ifleq0? 5 1 0}) (ifleq0? (NumC 5) (NumC 1) (NumC 0)))
 (check-exn #rx"AAQZ" (lambda () (parse "hi")))
-
-
-;; top-interp takes in s-expression and
-;; calls parse and interp, reducing the
-;; expression to a value
-#;(define (top-interp [s : Sexp]) : Real
-  (interp(parse s)))
-
-#;(check-equal? (top-interp '7) 7)
-#;(check-equal? (top-interp '{* {+ 2 3} 7}) 35)
-;;(check-equal? (top-interp '{ifleq0? 5 1 0}) 0)
-;;(check-exn #rx"AAQZ" (lambda () (top-interp "hi")))
-
-(check-equal? (parse '{f 1 2}) (AppC 'f (list (NumC 1) (NumC 2))))
-(check-equal? (parse 'f) (IdC 'f))
-
-
+(check-equal? (parse '{+ {f} {f}}) (BinopC '+ (AppC 'f '()) (AppC 'f '())))
 
 ;; helper function to check for duplicate parameters
 (define (has-dup [lst : (Listof Symbol)]) : Boolean
@@ -185,8 +164,9 @@
 (check-equal? (parse-fundef '{def g {() => 5}}) (FundefC 'g '() (NumC 5)))
 (check-exn #rx"AAQZ" (lambda () (parse-fundef '{def err {(x x) => x}})))
 (check-exn #rx"AAQZ" (lambda () (parse-fundef '{def err {(x y)}})))
-
-
+(check-equal? (parse-fundef '{def f {() => 5}}) (FundefC 'f '() (NumC 5)))
+(check-equal? (parse-fundef '{def main {() => {+ {f} {f}}}})
+              (FundefC 'main '() (BinopC '+ (AppC 'f '()) (AppC 'f '()))))
 
 
 ;; parser that takes s-expression with FundefC and returns list of FundefC
@@ -200,17 +180,25 @@
               (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x) (IdC 'y)))
                     (FundefC 'y '(y x) (BinopC '* (IdC 'y) (IdC 'x)))))
 (check-exn #rx"AAQZ" (lambda () (parse-prog 'def)))
-
+(check-equal? (parse-prog '{{def f {() => 5}}
+                      {def main {() => {+ {f} {f}}}}})
+              (list (FundefC 'f '() (NumC 5))
+                    (FundefC 'main '() (BinopC '+ (AppC 'f '()) (AppC 'f '())))))
 
 
 
 ;; top-interp takes in s-expression and
 ;; calls parse and interp, reducing the
 ;; expression to a value
-#;(define (top-interp [fun-sexps : Sexp]) : Real
-    (interp-fn (parse-prog fun-sexps)))
+(define (top-interp [fun-sexps : Sexp]) : Real
+    (interp-fns (parse-prog fun-sexps)))
 
-#;(check-equal? (top-interp '{{def f {(x y) => {+ x y}}}
+(check-equal? (top-interp '{{def f {(x y) => {+ x y}}}
                               {def main {() => {f 1 2}}}}) 3)
+
+ (check-equal? (interp-fns
+        (parse-prog '{{def f {() => 5}}
+                      {def main {() => {+ {f} {f}}}}}))
+       10)
 
 
