@@ -5,7 +5,7 @@
 ;;<Submission progress comment>
 
 ;;represents types of arithmetic extressions
-(define-type ExprC (U NumC BinopC ifleq0? Symbol AppC))
+(define-type ExprC (U NumC BinopC ifleq0? Symbol AppC IdC))
 ;;represents a number
 (struct NumC([n : Real]) #:transparent)
 ;;represents types of binary operations
@@ -16,6 +16,8 @@
 (struct FundefC ([name : Symbol] [args : (Listof Symbol)] [body : ExprC]) #:transparent)
 ;; represents application form
 (struct AppC ([fun : Symbol] [arg : Symbol]) #:transparent)
+;; represents idC
+(struct IdC ([name : Symbol]))
 
 ;;takes in an operator symbol and two arithmetic functions and returns the result of the operation
 (define (binop-interp [op : Symbol] [l : ExprC] [r : ExprC] [funs : (Listof FundefC)]) : Real
@@ -26,7 +28,7 @@
     ['- (- (interp l funs) (interp r funs))]))
 
 ;;takes in an arithmetic expression and reduces it to its value
-(define (interp [exp : ExprC]) : Real
+(define (interp [exp : ExprC] [funs : (Listof FundefC)]) : Real
   (match exp 
     [(NumC n) n]
     [(AppC fun args) (subst args (FundefC-args (find-fun fun funs)) (FundefC-body (find-fun fun funs)))]
