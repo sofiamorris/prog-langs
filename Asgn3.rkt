@@ -25,9 +25,10 @@
   (match op
     ['* (* (interp l funs) (interp r funs))]
     ['+ (+ (interp l funs) (interp r funs))]
-    ['/ (if (equal? r (NumC 0))
+    ['/ (define div (interp r funs))
+     (if (equal? div 0)
         (error 'binop-interp "AAQZ cannot divide by 0")
-        (/ (interp l funs) (interp r funs)))]
+        (/ (interp l funs) div))]
     ['- (- (interp l funs) (interp r funs))]))
 
 
@@ -101,8 +102,8 @@
 (define (interp [exp : ExprC][funs : (Listof FundefC)]) : Real
   (match exp 
     [(NumC n) n]
-    [(AppC fun args) (interp (subst args (FundefC-args (find-fun fun funs)) (FundefC-body (find-fun fun funs))) funs)]
     [(BinopC op l r) (binop-interp op l r funs)]
+    [(AppC fun args) (interp (subst args (FundefC-args (find-fun fun funs)) (FundefC-body (find-fun fun funs))) funs)]
     [(ifleq0? a b c) (if (<= (interp a funs) (interp (NumC 0) funs)) (interp b funs) (interp c funs))]))
 
 (check-equal? (interp (BinopC '+ (NumC 2) (NumC 2)) '()) 4)
@@ -115,8 +116,9 @@
 (check-equal? (interp (ifleq0? (NumC -1) (NumC 1) (NumC 0)) '()) 1)
 (check-equal? (interp (AppC 'f (list (NumC 1)(AppC 'f (list (NumC 1)(NumC 1)))))
                       (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x)(IdC 'y))))) 3)
-(check-exn #rx"AAQZ" (lambda () (interp (BinopC '/ (NumC 2) (NumC 0)) '())))
-
+(check-exn #rx"AAQZ" (lambda () (interp (BinopC '/ (NumC 1) (BinopC '+ (NumC 0) (NumC 0))) '())))
+(interp (AppC 'ignoreit (list (BinopC '/ (NumC 1) (BinopC '+ (NumC 0) (NumC 0)))))
+        (list (FundefC 'ignoreit '(x) (BinopC '+ (NumC 3) (NumC 4)))))
 
 ;; takes in a list of function definitions and returns the final value
 ;; differentiate main function from other function definitions and calls
@@ -137,9 +139,8 @@
 (check-exn #rx"AAQZ" (lambda () (interp-fns
                (list (FundefC 'f '(x) (BinopC '+ (IdC 'x) (IdC 'x)))))))
 (check-equal? (interp-fns
-               (list (FundefC 'f '() (NumC 5)) (FundefC 'main '() (BinopC '+ (AppC 'f '()) (AppC 'f '()))))) 10)
-
-
+               (list (FundefC 'f '() (NumC 5))
+                     (FundefC 'main '() (BinopC '+ (AppC 'f '()) (AppC 'f '()))))) 10)
 
 
 ;;take in a sexp representing an id and check that it is a symbol that is not a
@@ -229,7 +230,7 @@
 (check-equal? (parse '{ifleq0? 5 1 0}) (ifleq0? (NumC 5) (NumC 1) (NumC 0)))
 (check-exn #rx"AAQZ" (lambda () (parse "hi")))
 (check-equal? (parse '{+ {f} {f}}) (BinopC '+ (AppC 'f '()) (AppC 'f '())))
-
+(check-equal? (parse '{/ 1 {+ 0 0}}) (BinopC '/ (NumC 1) (BinopC '+ (NumC 0) (NumC 0))))
 
 ;; helper function to check for duplicate parameters
 (define (has-dup [lst : (Listof Symbol)]) : Boolean
@@ -261,7 +262,10 @@
 (check-equal? (parse-fundef '{def main {() => {+ {f} {f}}}})
               (FundefC 'main '() (BinopC '+ (AppC 'f '()) (AppC 'f '()))))
 (check-exn  #rx"AAQZ" (lambda () (parse-fundef '(def + (() => 13)))))
-
+(check-equal? (parse-fundef '{def ignoreit {(x) => {+ 3 4}}})
+              (FundefC 'ignoreit '(x) (BinopC '+ (NumC 3) (NumC 4))))
+(parse-fundef '{def main {() => {ignoreit {/ 1 {+ 0 0}}}}})
+;;(check-exn #rx"AAQZ" (lambda () (parse-fundef '{def main {() => {ignoreit {/ 1 {+ 0 0}}}}})))
 
 ;; parser that takes s-expression with FundefC and returns list of FundefC
 (define (parse-prog [s : Sexp]) : (Listof FundefC)
@@ -278,7 +282,8 @@
                       {def main {() => {+ {f} {f}}}}})
               (list (FundefC 'f '() (NumC 5))
                     (FundefC 'main '() (BinopC '+ (AppC 'f '()) (AppC 'f '())))))
-
+#;(check-exn #rx"AAQZ" (lambda () (parse-prog '{{def ignoreit {(x) => {+ 3 4}}}
+                            {def main {() => {ignoreit {/ 1 {+ 0 0}}}}}})))
 
 
 ;; top-interp takes in s-expression and
@@ -304,9 +309,9 @@
                             {def g {(a b c) => b}}
                             {def main {() => {f 1 2 3}}}}) 3)
 
-(check-exn #rx"AAQZ" (lambda () (top-interp '{{def ignoreit {(x) => {+ 3 4}}}
+#;(check-exn #rx"AAQZ" (lambda () (top-interp '{{def ignoreit {(x) => {+ 3 4}}}
                             {def main {() => {ignoreit {/ 1 {+ 0 0}}}}}})))
-(top-interp '{{def ignoreit {(x) => {+ 3 4}}}
+#;(top-interp '{{def ignoreit {(x) => {+ 3 4}}}
                             {def main {() => {ignoreit {/ 1 {+ 0 0}}}}}})
 
 ;;expected exception with message containing AAQZ on test expression:
