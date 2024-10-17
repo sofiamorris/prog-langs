@@ -25,7 +25,9 @@
   (match op
     ['* (* (interp l funs) (interp r funs))]
     ['+ (+ (interp l funs) (interp r funs))]
-    ['/ (/ (interp l funs) (interp r funs))]
+    ['/ (if (equal? r (NumC 0))
+        (error 'binop-interp "AAQZ cannot divide by 0")
+        (/ (interp l funs) (interp r funs)))]
     ['- (- (interp l funs) (interp r funs))]))
 
 
@@ -79,8 +81,9 @@
                [(symbol-in-lst s for) (replace-IdC what (find-IdC s for 0))]
                [else in])]
     [(AppC f args) (AppC f (for/list ([x args]) (subst what for x)))]
+    [(ifleq0? a b c) (ifleq0? (subst what for a) (subst what for b) (subst what for c))]
     [(BinopC op l r) (if (not (= (length what) (length for)))
-                         (error 'interp "AAQZ number of args does not match number of params")
+                         (error 'subst "AAQZ number of args does not match number of params")
                          (BinopC op
                                  (subst what for l)
                                  (subst what for r)))]))
@@ -112,6 +115,7 @@
 (check-equal? (interp (ifleq0? (NumC -1) (NumC 1) (NumC 0)) '()) 1)
 (check-equal? (interp (AppC 'f (list (NumC 1)(AppC 'f (list (NumC 1)(NumC 1)))))
                       (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x)(IdC 'y))))) 3)
+(check-exn #rx"AAQZ" (lambda () (interp (BinopC '/ (NumC 2) (NumC 0)) '())))
 
 
 ;; takes in a list of function definitions and returns the final value
@@ -144,14 +148,14 @@
 (define (valid-id? [id : Sexp]) : Boolean
   (match id
     [(? symbol?) (match id
-                     ['+ #f]
-                     ['- #f]
-                     ['* #f]
-                     ['/ #f]
-                     ['def #f]
-                     ['ifleq0? #f]
-                     ['=> #f]
-                     [else #t])]
+                   ['+ #f]
+                   ['- #f]
+                   ['* #f]
+                   ['/ #f]
+                   ['def #f]
+                   ['ifleq0? #f]
+                   ['=> #f]
+                   [else #t])]
     [else #f]))
 
 (check-equal? (valid-id? 's) #t)
@@ -189,16 +193,34 @@
 (check-equal? (valid-name? 'ifleq0?) #f)
 (check-equal? (valid-name? '=>) #f)
 
+;;takes in a sexp operator and checks that it is a symbol and returns true if the
+;;symbol is a valid binary operator and false if not
+(define (valid-op? [op : Sexp]) : Boolean
+    (match op
+    [(? symbol?) (match op
+                     ['+ #t]
+                     ['- #t]
+                     ['* #t]
+                     ['/ #t]
+                     [else #f])]
+    [else #f]))
+
+(check-equal? (valid-op? '+) #t)
+(check-equal? (valid-op? '-) #t)
+(check-equal? (valid-op? '*) #t)
+(check-equal? (valid-op? '/) #t)
+(check-equal? (valid-op? '=>) #f)
+(check-equal? (valid-op? 6) #f)
+
 ;;parser in Arith takes in an s-expression and returns a corresponding ArithC or signals an error
 (define (parse [s : Sexp]) : ExprC
   (match s
     [(? real? n) (NumC n)]
     [(? valid-id? id) (IdC (cast id Symbol))]
     [(list (? valid-name? f)) (AppC (cast f Symbol) '())]
-    [(list (? symbol? op) l r) (if (member op '(+ - * /))
-                                   (BinopC op (parse l) (parse r))
-                                   (AppC op (cast (map parse (rest s)) (Listof ExprC))))]
-    [(list (? valid-name? f) r) (AppC (cast f Symbol) (list (parse r)))]
+    [(list (? valid-name? f) r ...)
+     (AppC (cast f Symbol) (cast (map parse (rest s)) (Listof ExprC)))]
+    [(list (? valid-op? op) l r) (BinopC (cast op Symbol) (parse l) (parse r))]
     [(list 'ifleq0? a b c) (ifleq0? (parse a) (parse b) (parse c))]
     [other (error 'parse "AAQZ expected a valid Sexp, got ~e" other)]))
 
@@ -275,8 +297,17 @@
                             {def minus {(x y) => {+ x {* -1 y}}}}
                             {def twice {(x) => {* 2 x}}}} ) 6)
 
-#;(check-exn #rx"AAQZ"
-            (λ ()
-              (interp-fns
-               (parse-prog '{{def f {(x y) => {+ x y}}}
-                             {def main {() => {f 1}}}}))))
+(check-equal? (top-interp '{{def main {() => {+ {f 13} {f 0}}}}
+                            {def f {(qq) => {ifleq0? qq qq (+ qq 1)}}}}) 14)
+
+(check-equal? (top-interp '{{def f {(x y z) => {g y z x}}}
+                            {def g {(a b c) => b}}
+                            {def main {() => {f 1 2 3}}}}) 3)
+
+(check-exn #rx"AAQZ" (lambda () (top-interp '{{def ignoreit {(x) => {+ 3 4}}}
+                            {def main {() => {ignoreit {/ 1 {+ 0 0}}}}}})))
+(top-interp '{{def ignoreit {(x) => {+ 3 4}}}
+                            {def main {() => {ignoreit {/ 1 {+ 0 0}}}}}})
+
+;;expected exception with message containing AAQZ on test expression:
+;;'(top-interp '((def ignoreit ((x) => (+ 3 4))) (def main (() => (ignoreit (/ 1 (+ 0 0)))))))
