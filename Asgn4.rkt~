@@ -35,14 +35,6 @@
 (define-type Env (Listof Binding))
 (define mt-env empty)
 
-(define (serialize [v : Value]) : String
-  (match v
-    [(NumV n) (format "~v" n)]
-    [(BoolV b) (format "~v" n)]
-    [(StrV s) (format "~v" s)]
-    [(CloV c) ("#<procedure>")]
-    [(PrimV p) ("#<primop>")]))
-
 ;;takes in an operator symbol and two arithmetic functions and returns the result of the operation
 (define (binop-interp [op : Symbol] [l : ExprC] [r : ExprC] [env : Env]
                       [funs : (Listof FundefC)]) : Real
