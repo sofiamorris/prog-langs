@@ -9,14 +9,26 @@
 (struct NumC([n : Real]) #:transparent)
 ;;represents types of binary operations
 (struct BinopC ([op : Symbol] [left : ExprC] [right : ExprC]) #:transparent)
-;;represents conditional <=0
-(struct ifleq0? ([a : ExprC] [b : ExprC] [c : ExprC]) #:transparent)
 ;;represents function defnitions
 (struct FundefC ([name : Symbol] [args : (Listof Symbol)] [body : ExprC]) #:transparent)
 ;; represents application form
 (struct AppC ([fun : Symbol] [arg : (Listof ExprC)]) #:transparent)
 ;; represents idC
 (struct IdC ([name : Symbol]) #:transparent)
+;; represents a string
+(struct StrC ([str : String]))
+;; represents an if statement - 1st expression is the condition, 2nd evaluates if true,
+;; 3rd evaluates if false
+(struct IfC ([if : Symbol] [cond : ExprC] [true : ExprC] [false : ExprC]))
+;; represents an anonymous function
+(struct LamC ([args : (Listof Symbol)] [body : ExprC]))
+
+;;(define-type Value (U NumV CloV BoolV StrV PrimV))
+;;(define NumV Real)
+;;(define CloV )
+;;(define BoolV Boolean)
+;;(define StrV String)
+;;(define PrimV )
 
 (struct Binding ([name : Symbol] [val : Real]))
  
@@ -70,7 +82,6 @@
 
 ;;takes in an arithmetic expression and reduces it to its value
 (define (interp [exp : ExprC] [env : Env] [funs : (Listof FundefC)]) : Real
-  (printf "~a\n" exp)
   (match exp 
     [(NumC n) n]
     [(IdC n) (lookup n env)]
