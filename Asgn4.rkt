@@ -35,6 +35,7 @@
 (define-type Env (Listof Binding))
 (define mt-env empty)
 
+;; accepts any AAQZ4 value and returns a string
 (define (serialize [v : Value]) : String
   (match v
     [(NumV n) (format "~v" n)]
