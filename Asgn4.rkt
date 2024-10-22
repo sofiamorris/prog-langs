@@ -52,30 +52,43 @@
     [(CloV arg bod env) ("#<procedure>")]
     [(PrimV p) ("#<primop>")]))
 
-;;takes in an operator symbol and two arithmetic functions and returns the result of the operation
-#;(define (top-env-interp [op : Symbol] [l : ExprC] [r : ExprC] [tenv : top-env]) : Real
-  (match op
-    ['* (* (interp l env) (interp r env))]
-    ['+ (+ (interp l env) (interp r env))]
-    ['/ (define div (interp r env))
-     (if (equal? div 0)
-        (error 'binop-interp "AAQZ cannot divide by 0")
-        (/ (interp l env) div))]
-    ['- (- (interp l env) (interp r env))]))
+;;takes in a symbol and checks if it exists in the top environment for built-in functions
+;;returns true if within list, false otherwise
+(define (top-env? [for : Symbol]) : Boolean
+  (match for
+    ['* #t]
+    ['+ #t]
+    ['/ #t]
+    ['- #t]
+    ['<= #t]
+    ['equal #t]
+    ['true #t]
+    ['false #t]
+    ['error #t]
+    [else #f]))
 
-
-;; helper function to find function definition
-#;(define (find-fun [fun : Symbol][funs : (Listof FundefC)]) : FundefC
-  (cond
-    [(empty? funs) (error 'find-fun "AAQZ function not found")]
-    [(equal? fun (FundefC-name (first funs))) (first funs)]
-    [else (find-fun fun (rest funs))]))
-
-#;(check-equal? (find-fun 'f (list (FundefC 'f '(x y)
-                                          (BinopC '+ (IdC 'x) (IdC 'y)))))
-              (FundefC 'f '(x y) (BinopC '+ (IdC 'x) (IdC 'y))))
-#;(check-exn #rx"AAQZ" (lambda () (find-fun 'hi (list
-                                               (FundefC 'f '(x y) (BinopC '+ (IdC 'x) (IdC 'y)))))))
+(define (primv-interp [val : Symbol] [l : ExprC] [r : (Listof ExprC)] [env : Env]) : Value
+  (printf "~a\n" l)
+  (printf "~a\n" (first r))
+  (match val
+    ['equal (BoolV #t)]
+    ['true (BoolV #t)]
+    ['false (BoolV #f)]
+    ['error (error 'primv-interp "AAQZ Error provided in function")]
+    [else (define left (interp l env))
+          (define right (interp (first r) env))
+          (printf "~a\n" left)
+          (printf "~a\n" right)
+          (if (and (NumV? left) (NumV? right))
+              (match val
+                ['* (NumV (* (NumV-val left) (NumV-val right)))]
+                ['+ (NumV (+ (NumV-val left) (NumV-val right)))]
+                ['/ (if (equal? (NumV-val right) 0)
+                        (NumV (/ (NumV-val left) (NumV-val right)))
+                        (error 'binop-interp "AAQZ cannot divide by 0"))]
+                ['- (NumV (- (NumV-val left) (NumV-val right)))]
+                ['<= (BoolV (<= (NumV-val left) (NumV-val right)))])
+              (error 'primv-interp "one argument was not a number"))]))
 
 ;;substitutes value in env for symbol if exists
 (define (lookup [for : Symbol] [env : Env]) : Value
@@ -83,7 +96,9 @@
     [(empty? env) (error 'lookup "AAQZ name not found in env directory")]
     [else (cond
             [(symbol=? for (Binding-name (first env)))
-             (Binding-val (first env))]
+             (cond
+               [(top-env? for) (PrimV for)] 
+               [else (Binding-val (first env))])]
             [else (lookup for (rest env))])]))
 
 (check-exn #rx"AAQZ" (lambda () (lookup 'a '())))
@@ -91,31 +106,29 @@
 ;;takes in the function body and body of AppC and returns a list of bindings for the environment
 (define (extend-env [fargs : (Listof Symbol)] [args : (Listof ExprC)]
                     [outer-env : Env] [clov-env : Env]) : (Listof Binding)
+  (printf "extend ~a & ~a\n" fargs args)
   (match fargs
     ['() clov-env]
     [else (cons (Binding (first fargs) (interp (first args) outer-env))
                 (extend-env (rest fargs) (rest args) outer-env clov-env))]))
 
-(define (num+ [l : Value] [r : Value]) : Value
-  (cond
-    [(and (NumV? l) (NumV? r))
-     (NumV (+ (NumV-val l) (NumV-val r)))]
-    [else
-     (error 'num+ "one argument was not a number")]))
-
 ;;takes in an arithmetic expression and reduces it to its value
 (define (interp [exp : ExprC] [env : Env]) : Value
+  (printf "interp: ~a\n" exp)
+  (printf "env : ~a\n" env)
   (match exp 
     [(NumC n) (NumV n)]
     [(IdC id) (lookup id env)]
-    [(AppC fun args) (local ([define [f-value : CloV] (interp fun env)])
-                       (interp (CloV-body (cast f-value CloV))
-                               (extend-env (CloV-args (cast f-value CloV))
-                                           args env (CloV-env (cast f-value CloV)))))]
+    [(AppC fun args) (local ([define f-value (interp fun env)])
+                       (printf "f-value : ~a\n" f-value)
+                       (match f-value
+                         [(PrimV p) (printf "~a\n" args) (primv-interp p (first args) (rest args) env)]
+                         [(CloV a b e) (interp b
+                               (extend-env a
+                                           args env e))]))]
     [(LamC args body) (CloV args body env)]))
 
-#;(check-equal? (interp (BinopC '+ (NumC 2) (NumC 2)) mt-env '()) 4)
-#;(check-equal? (interp (AppC 'f (list (NumC 1)(NumC 2))) mt-env
-                      (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x)(IdC 'y))))) 3)
+(check-equal? (interp (AppC (LamC '(x y) (AppC (IdC '*) (list (IdC 'x) (IdC 'y))))
+    (list (NumC 4) (NumC 7))) top-env) (NumV 28))
 #;(check-equal? (interp (AppC 'f (list (NumC 1)(AppC 'f (list (NumC 1)(NumC 1))))) mt-env
                       (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x)(IdC 'y))))) 3)
