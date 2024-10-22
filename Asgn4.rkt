@@ -47,9 +47,9 @@
 (define (serialize [v : Value]) : String
   (match v
     [(NumV n) (format "~v" n)]
-    [(BoolV b) (format "~v" n)]
+    [(BoolV b) (format "~v" b)]
     [(StrV s) (format "~v" s)]
-    [(CloV c) ("#<procedure>")]
+    [(CloV arg bod env) ("#<procedure>")]
     [(PrimV p) ("#<primop>")]))
 
 ;;takes in an operator symbol and two arithmetic functions and returns the result of the operation
