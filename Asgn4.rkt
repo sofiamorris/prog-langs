@@ -8,7 +8,7 @@
 ;;represents a number
 (struct NumC([n : Real]) #:transparent)
 ;; represents application form
-(struct AppC ([fun : Symbol] [arg : (Listof ExprC)]) #:transparent)
+(struct AppC ([fun : ExprC] [arg : (Listof ExprC)]) #:transparent)
 ;; represents idC
 (struct IdC ([name : Symbol]) #:transparent)
 ;; represents a string
@@ -23,7 +23,7 @@
 
 (define-type Value (U NumV CloV BoolV StrV PrimV))
 (struct NumV ([val : Real]) #:transparent)
-(struct CloV ([arg : Symbol] [body : ExprC] [env : Env]) #:transparent)
+(struct CloV ([args : (Listof Symbol)] [body : ExprC] [env : Env]) #:transparent)
 (struct BoolV ([val : Boolean]) #:transparent)
 (struct StrV ([val : String]) #:transparent)
 (struct PrimV ([val : Symbol]) #:transparent)
@@ -44,7 +44,7 @@
                  (Binding 'error (PrimV 'error))))
 
 ;; accepts any AAQZ4 value and returns a string
-(define (serialize [v : Value]) : String
+#;(define (serialize [v : Value]) : String
   (match v
     [(NumV n) (format "~v" n)]
     [(BoolV b) (format "~v" b)]
@@ -89,12 +89,12 @@
 (check-exn #rx"AAQZ" (lambda () (lookup 'a '())))
 
 ;;takes in the function body and body of AppC and returns a list of bindings for the environment
-(define (extend-env [fargs : (Listof IdC)] [args : (Listof ExprC)] [env : Env])
-  : (Listof Binding)
+(define (extend-env [fargs : (Listof Symbol)] [args : (Listof ExprC)]
+                    [outer-env : Env] [clov-env : Env]) : (Listof Binding)
   (match fargs
-    ['() mt-env]
-    [else (cons (Binding (first fargs) (interp (first args) env))
-                (extend-env (rest fargs) (rest args) env))]))
+    ['() clov-env]
+    [else (cons (Binding (first fargs) (interp (first args) outer-env))
+                (extend-env (rest fargs) (rest args) outer-env clov-env))]))
 
 (define (num+ [l : Value] [r : Value]) : Value
   (cond
@@ -108,11 +108,11 @@
   (match exp 
     [(NumC n) (NumV n)]
     [(IdC id) (lookup id env)]
-    #;[(AppC fun args) (local ([define fd (find-fun fun funs)])
-                       (interp (FundefC-body fd)
-                               (extend-env (FundefC-args fd) args env funs)
-                               funs))]
-    #;[(LamC args body) (ClosV a b env)]))
+    [(AppC fun args) (local ([define [f-value : CloV] (interp fun env)])
+                       (interp (CloV-body (cast f-value CloV))
+                               (extend-env (CloV-args (cast f-value CloV))
+                                           args env (CloV-env (cast f-value CloV)))))]
+    [(LamC args body) (CloV args body env)]))
 
 #;(check-equal? (interp (BinopC '+ (NumC 2) (NumC 2)) mt-env '()) 4)
 #;(check-equal? (interp (AppC 'f (list (NumC 1)(NumC 2))) mt-env
