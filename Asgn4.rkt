@@ -43,6 +43,15 @@
                  (Binding 'false (PrimV 'false))
                  (Binding 'error (PrimV 'error))))
 
+;; accepts any AAQZ4 value and returns a string
+(define (serialize [v : Value]) : String
+  (match v
+    [(NumV n) (format "~v" n)]
+    [(BoolV b) (format "~v" n)]
+    [(StrV s) (format "~v" s)]
+    [(CloV c) ("#<procedure>")]
+    [(PrimV p) ("#<primop>")]))
+
 ;;takes in an operator symbol and two arithmetic functions and returns the result of the operation
 #;(define (top-env-interp [op : Symbol] [l : ExprC] [r : ExprC] [tenv : top-env]) : Real
   (match op
