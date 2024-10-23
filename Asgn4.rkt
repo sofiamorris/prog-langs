@@ -144,8 +144,39 @@
 (check-equal? (interp (AppC (LamC '(x y) (AppC (IdC '*) (list (IdC 'x) (IdC 'y))))
     (list (NumC 4) (NumC 7))) top-env) (NumV 28))
 
-#;(check-equal? (interp (AppC 'f (list (NumC 1)(AppC 'f (list (NumC 1)(NumC 1))))) mt-env
-                      (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x)(IdC 'y))))) 3)
+
+(define (desugar [cl : (Listof Any)] [body : Sexp]) : ExprC
+  (printf "cl : ~a\n" cl)
+  (printf "body : ~a\n" body)
+  (define vals (map (lambda (c)
+                      (match c
+                        [(list name '= val) (parse (cast val Sexp))]
+                        [_ (error "Invalid sublist structure")])) cl))
+  (printf "vals : ~a\n" vals)
+  (define names (map (lambda (c)
+                      (match c
+                        [(list name '= val) name]
+                        [_ (error "Invalid sublist structure")])) cl))
+  (printf "names : ~a\n" names)
+  (define bod (parse body))
+  (printf "bod : ~a\n" bod) (AppC (LamC (cast names (Listof Symbol)) bod) vals))
+
+;;parser in Arith takes in an s-expression and returns a corresponding ArithC or signals an error
+(define (parse [s : Sexp]) : ExprC
+  (printf "sexp : ~a\n" s)
+  (match s
+    [(? real? n) (NumC n)]
+    [(? symbol? id) (IdC (cast id Symbol))]
+    [(list 'bind cl ... body) (desugar cl body)]
+    [(list 'if cond t f) (IfC (parse cond) (parse t) (parse f))]
+    [(list (? symbol? f)) (AppC (cast (parse f) ExprC) '())]
+    [(list (? symbol? f) r ...)
+     (AppC (cast (parse f) ExprC) (cast (map parse (rest s)) (Listof ExprC)))]
+    [other (error 'parse "AAQZ expected a valid Sexp, got ~e" other)]))
+
+(check-equal? (parse '{bind [x = 4] [y = 7] {* x y}})
+              (AppC (LamC '(x y) (AppC (IdC '*) (list (IdC 'x) (IdC 'y))))
+                    (list (NumC 4) (NumC 7))))
 
 #;(define (top-interp [s : Sexp]) : String
   (serialize (interp (parse s) top-env)))
