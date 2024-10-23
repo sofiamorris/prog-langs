@@ -4,7 +4,7 @@
 ;;Sofia Morris, Anissa Soungpanya
 
 ;;represents types of arithmetic extressions
-(define-type ExprC (U NumC AppC IdC StrC IfC LamC BindC))
+(define-type ExprC (U NumC AppC IdC StrC IfC LamC))
 ;;represents a number
 (struct NumC([n : Real]) #:transparent)
 ;; represents application form
@@ -15,11 +15,10 @@
 (struct StrC ([str : String]) #:transparent)
 ;; represents an if statement - 1st expression is the condition, 2nd evaluates if true,
 ;; 3rd evaluates if false
-(struct IfC ([if : Symbol] [cond : ExprC] [true : ExprC] [false : ExprC]) #:transparent)
+(struct IfC ([cond : ExprC] [true : ExprC] [false : ExprC]) #:transparent)
 ;; represents an anonymous function
 (struct LamC ([args : (Listof Symbol)] [body : ExprC]) #:transparent)
-;; represents syntactic sugar for bind
-(struct BindC ([cl : (Listof Binding)] [exp : ExprC]))
+
 
 (define-type Value (U NumV CloV BoolV StrV PrimV))
 (struct NumV ([val : Real]) #:transparent)
@@ -51,6 +50,8 @@
     [(StrV s) (format "~v" s)]
     [(CloV arg bod env) (format "~v~v~v" arg bod env)]
     [(PrimV p) (format "~v" p)]))
+
+(check-equal? (serialize (NumV 12)) "12")
 
 ;;takes in a symbol and checks if it exists in the top environment for built-in functions
 ;;returns true if within list, false otherwise
@@ -129,6 +130,8 @@
   (match exp 
     [(NumC n) (NumV n)]
     [(IdC id) (lookup id env)]
+    [(StrC str) (StrV str)]
+    [(IfC cond t f) (if (interp cond env) (interp t env) (interp f env))]
     [(AppC fun args) (local ([define f-value (interp fun env)])
                        (printf "f-value : ~a\n" f-value)
                        (match f-value
