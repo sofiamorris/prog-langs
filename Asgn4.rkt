@@ -145,7 +145,7 @@
     (list (NumC 4) (NumC 7))) top-env) (NumV 28))
 
 
-(define (desugar [cl : (Listof Any)] [body : Sexp]) : ExprC
+#;(define (desugar [cl : (Listof Any)] [body : Sexp]) : ExprC
   (printf "cl : ~a\n" cl)
   (printf "body : ~a\n" body)
   (define vals (map (lambda (c)
@@ -167,8 +167,11 @@
   (match s
     [(? real? n) (NumC n)]
     [(? symbol? id) (IdC (cast id Symbol))]
-    [(list 'bind cl ... body) (desugar cl body)]
+    [(list 'bind (list ids '= vals) ... body)
+     (AppC (LamC (cast ids (Listof Symbol)) (parse body))
+           (map (lambda (val) (parse (cast val Sexp))) vals))]
     [(list 'if cond t f) (IfC (parse cond) (parse t) (parse f))]
+    #;[(list (list ))]
     [(list (? symbol? f)) (AppC (cast (parse f) ExprC) '())]
     [(list (? symbol? f) r ...)
      (AppC (cast (parse f) ExprC) (cast (map parse (rest s)) (Listof ExprC)))]
@@ -178,5 +181,8 @@
               (AppC (LamC '(x y) (AppC (IdC '*) (list (IdC 'x) (IdC 'y))))
                     (list (NumC 4) (NumC 7))))
 
-#;(define (top-interp [s : Sexp]) : String
+(define (top-interp [s : Sexp]) : String
   (serialize (interp (parse s) top-env)))
+
+(check-equal? (top-interp '{bind [f = {(x) => {(y) => {+ x y}}}]
+    {{f 3} 7 }}) "10")
