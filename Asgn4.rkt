@@ -44,13 +44,13 @@
                  (Binding 'error (PrimV 'error))))
 
 ;; accepts any AAQZ4 value and returns a string
-#;(define (serialize [v : Value]) : String
+(define (serialize [v : Value]) : String
   (match v
     [(NumV n) (format "~v" n)]
     [(BoolV b) (format "~v" b)]
     [(StrV s) (format "~v" s)]
-    [(CloV arg bod env) ("#<procedure>")]
-    [(PrimV p) ("#<primop>")]))
+    [(CloV arg bod env) (format "~v~v~v" arg bod env)]
+    [(PrimV p) (format "~v" p)]))
 
 ;;takes in a symbol and checks if it exists in the top environment for built-in functions
 ;;returns true if within list, false otherwise
@@ -61,7 +61,7 @@
     ['/ #t]
     ['- #t]
     ['<= #t]
-    ['equal #t]
+    ['equal? #t]
     ['true #t]
     ['false #t]
     ['error #t]
@@ -71,10 +71,20 @@
   (printf "~a\n" l)
   (printf "~a\n" (first r))
   (match val
-    ['equal (BoolV #t)]
     ['true (BoolV #t)]
     ['false (BoolV #f)]
     ['error (error 'primv-interp "AAQZ Error provided in function")]
+    ['equal? (define left (interp l env))
+             (define right (interp (first r) env))
+             (cond
+               #;[(and (BoolV? left) (BoolV? right)
+                     (equal? (BoolV-val left) (BoolV-val right))) #t]
+               #;[(and (NumV? left) (NumV? right)
+                     (equal? (NumV-val left) (NumV-val right))) #t]
+               [(and (and (not (PrimV? left)) (not (PrimV? right)))
+                     (and (not (CloV? left)) (not (CloV? right)))
+                     (equal? left right)) (BoolV #t)]
+               [else (BoolV #f)])]
     [else (define left (interp l env))
           (define right (interp (first r) env))
           (printf "~a\n" left)
@@ -130,5 +140,9 @@
 
 (check-equal? (interp (AppC (LamC '(x y) (AppC (IdC '*) (list (IdC 'x) (IdC 'y))))
     (list (NumC 4) (NumC 7))) top-env) (NumV 28))
+
 #;(check-equal? (interp (AppC 'f (list (NumC 1)(AppC 'f (list (NumC 1)(NumC 1))))) mt-env
                       (list (FundefC 'f '(x y) (BinopC '+ (IdC 'x)(IdC 'y))))) 3)
+
+#;(define (top-interp [s : Sexp]) : String
+  (serialize (interp (parse s) top-env)))
