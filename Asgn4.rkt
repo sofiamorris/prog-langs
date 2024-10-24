@@ -47,9 +47,9 @@
   (match v
     [(NumV n) (format "~v" n)]
     [(BoolV b) (format "~v" b)]
-    [(StrV s) (format "~v" s)]
-    [(CloV arg bod env) (format "~v~v~v" arg bod env)]
-    [(PrimV p) (format "~v" p)]))
+    [(StrV s) (format "\"~v\"" s)]
+    [(CloV arg bod env) (format "#<procedure>")]
+    [(PrimV p) (format "#<primop>")]))
 
 (check-equal? (serialize (NumV 12)) "12")
 
