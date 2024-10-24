@@ -144,22 +144,18 @@
 #;(check-equal? (interp (AppC (LamC '(x y) (AppC (IdC '*) (list (IdC 'x) (IdC 'y))))
     (list (NumC 4) (NumC 7))) top-env) (NumV 28))
 
-
-#;(define (desugar [cl : (Listof Any)] [body : Sexp]) : ExprC
-  (printf "cl : ~a\n" cl)
-  (printf "body : ~a\n" body)
-  (define vals (map (lambda (c)
-                      (match c
-                        [(list name '= val) (parse (cast val Sexp))]
-                        [_ (error "Invalid sublist structure")])) cl))
-  (printf "vals : ~a\n" vals)
-  (define names (map (lambda (c)
-                      (match c
-                        [(list name '= val) name]
-                        [_ (error "Invalid sublist structure")])) cl))
-  (printf "names : ~a\n" names)
-  (define bod (parse body))
-  (printf "bod : ~a\n" bod) (AppC (LamC (cast names (Listof Symbol)) bod) vals))
+;;take in a sexp representing an id and check that it is a symbol that is not a
+;;if, =>, bind, or =
+;;returns true if valid and false if not valid
+(define (valid-id? [id : Sexp]) : Boolean
+  (match id
+    [(? symbol?) (match id
+                   ['if #f]
+                   ['=> #f]
+                   ['bind #f]
+                   ['= #f]
+                   [else #t])]
+    [else #f]))
 
 ;;parser in Arith takes in an s-expression and returns a corresponding ArithC or signals an error
 (define (parse [s : Sexp]) : ExprC
